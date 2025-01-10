@@ -1,15 +1,36 @@
 import { build } from "esbuild";
-import { sync } from "glob";
 import pkg from "fs-extra";
 const { copy, mkdirSync, readFileSync, writeFileSync } = pkg;
 import { load, dump } from "js-yaml";
 import zip from "adm-zip";
+import { readdirSync, statSync } from "fs";
+import { join, extname } from "path";
+
+function getAllTsFiles(dir, ignoreDirs) {
+  let results = [];
+  const list = readdirSync(dir);
+
+  list.forEach((file) => {
+    const filePath = join(dir, file);
+    const stat = statSync(filePath);
+
+    if (stat && stat.isDirectory()) {
+      if (!ignoreDirs.some((ignoreDir) => filePath.includes(ignoreDir))) {
+        results = results.concat(getAllTsFiles(filePath, ignoreDirs));
+      }
+    } else {
+      if (extname(filePath) === ".ts") {
+        results.push(filePath);
+      }
+    }
+  });
+
+  return results;
+}
 
 let globStartTimestamp = Date.now();
-// 使用glob获取当前目录及子目录下的所有ts文件
-const tsFiles = sync("**/*.ts", {
-  ignore: ["node_modules/**", "dist/**"], // 忽略node_modules和dist目录
-});
+// 使用自定义函数获取当前目录及子目录下的所有ts文件
+const tsFiles = getAllTsFiles(".", ["node_modules", "dist"]); // 忽略node_modules和dist目录
 console.log(`Glob finished in ${Date.now() - globStartTimestamp}ms`);
 
 // 构建配置
